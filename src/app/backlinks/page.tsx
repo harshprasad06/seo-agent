@@ -2,25 +2,22 @@
 
 import { useState } from 'react';
 import { trpc } from '@/lib/trpc';
+import SharedLayout from '../SharedLayout';
 
 const OUTREACH_STATUSES = ['not_contacted', 'contacted', 'followed_up', 'link_acquired', 'declined'] as const;
 type OutreachStatus = typeof OUTREACH_STATUSES[number];
 
-const STATUS_COLORS: Record<OutreachStatus, { bg: string; color: string }> = {
-  not_contacted: { bg: '#f3f4f6', color: '#374151' },
-  contacted:     { bg: '#dbeafe', color: '#1e40af' },
-  followed_up:   { bg: '#fef3c7', color: '#92400e' },
-  link_acquired: { bg: '#d1fae5', color: '#065f46' },
-  declined:      { bg: '#fee2e2', color: '#991b1b' },
+const STATUS_BADGE: Record<OutreachStatus, string> = {
+  not_contacted: 'badge-neutral',
+  contacted: 'badge-info',
+  followed_up: 'badge-warning',
+  link_acquired: 'badge-success',
+  declined: 'badge-danger',
 };
 
 function StatusBadge({ status }: { status: string }) {
-  const s = STATUS_COLORS[status as OutreachStatus] ?? { bg: '#f3f4f6', color: '#374151' };
-  return (
-    <span style={{ background: s.bg, color: s.color, padding: '0.15rem 0.5rem', borderRadius: 12, fontSize: '0.75rem', fontWeight: 600 }}>
-      {status.replace(/_/g, ' ')}
-    </span>
-  );
+  const cls = STATUS_BADGE[status as OutreachStatus] ?? 'badge-neutral';
+  return <span className={`badge ${cls}`}>{status.replace(/_/g, ' ')}</span>;
 }
 
 function OutreachRow({ o, onStatusChange, statusPending }: {
@@ -45,59 +42,51 @@ function OutreachRow({ o, onStatusChange, statusPending }: {
   return (
     <>
       <tr>
-        <td style={tdStyle}>
+        <td>
           <div style={{ fontWeight: 600, fontSize: '0.85rem' }}>{o.source_domain}</div>
           {(o.links_to_competitors ?? []).length > 0 && (
-            <div style={{ fontSize: '0.72rem', color: '#6b7280', marginTop: '0.15rem' }}>
+            <div style={{ fontSize: '0.72rem', color: 'var(--text-tertiary)', marginTop: '0.15rem' }}>
               Links to: {(o.links_to_competitors as string[]).join(', ')}
             </div>
           )}
           {o.contact_email
-            ? <div style={{ fontSize: '0.72rem', color: '#2563eb', marginTop: '0.15rem' }}>
-                {'\u2709'} {o.contact_email}
-              </div>
+            ? <div style={{ fontSize: '0.72rem', color: 'var(--primary)', marginTop: '0.15rem' }}>✉ {o.contact_email}</div>
             : <a href={'https://' + o.source_domain + '/contact'} target="_blank" rel="noopener noreferrer"
-                style={{ fontSize: '0.72rem', color: '#6b7280', textDecoration: 'underline', display: 'block', marginTop: '0.15rem' }}>
-                Find contact {'\u2192'}
+                style={{ fontSize: '0.72rem', color: 'var(--text-tertiary)', textDecoration: 'underline', display: 'block', marginTop: '0.15rem' }}>
+                Find contact →
               </a>
           }
         </td>
-        <td style={{ ...tdStyle, textAlign: 'center' }}>{o.domain_authority ?? '\u2014'}</td>
-        <td style={{ ...tdStyle, textAlign: 'center' }}>
+        <td style={{ textAlign: 'center' }}>{o.domain_authority ?? '—'}</td>
+        <td style={{ textAlign: 'center' }}>
           {o.relevance_score != null
-            ? <span style={{ fontWeight: 600, color: Number(o.relevance_score) >= 0.7 ? '#16a34a' : '#374151' }}>
+            ? <span style={{ fontWeight: 600, color: Number(o.relevance_score) >= 0.7 ? 'var(--success)' : 'var(--text-primary)' }}>
                 {(Number(o.relevance_score) * 100).toFixed(0)}%
               </span>
-            : '\u2014'}
+            : '—'}
         </td>
-        <td style={tdStyle}><StatusBadge status={o.status} /></td>
-        <td style={tdStyle}>
+        <td><StatusBadge status={o.status} /></td>
+        <td>
           <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
-            <select value={o.status} disabled={statusPending} onChange={e => onStatusChange(o.id, e.target.value)} style={selectStyle}>
-              {OUTREACH_STATUSES.map(s => (
-                <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>
-              ))}
+            <select className="select" value={o.status} disabled={statusPending} onChange={e => onStatusChange(o.id, e.target.value)} style={{ fontSize: '0.8rem', padding: '0.25rem 0.5rem' }}>
+              {OUTREACH_STATUSES.map(s => <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>)}
             </select>
-            <button style={smallBtnStyle} disabled={generateDraft.isPending}
+            <button className="btn btn-ghost btn-sm" disabled={generateDraft.isPending}
               onClick={() => { if (draft) setShowDraft(v => !v); else generateDraft.mutate({ id: o.id }); }}>
-              {generateDraft.isPending ? '\u2026' : draft ? (showDraft ? 'Hide' : 'View Email') : '\u2709 Draft Email'}
+              {generateDraft.isPending ? '…' : draft ? (showDraft ? 'Hide' : 'View Email') : '✉ Draft Email'}
             </button>
           </div>
-          {generateDraft.error && (
-            <div style={{ color: '#dc2626', fontSize: '0.72rem', marginTop: '0.25rem' }}>
-              {generateDraft.error.message}
-            </div>
-          )}
+          {generateDraft.error && <div className="text-error" style={{ fontSize: '0.72rem', marginTop: '0.25rem' }}>{generateDraft.error.message}</div>}
         </td>
       </tr>
       {showDraft && draft && (
         <tr>
-          <td colSpan={5} style={{ ...tdStyle, background: '#f8fafc', padding: '0.75rem 1rem' }}>
+          <td colSpan={5} style={{ background: 'var(--bg-tertiary)', padding: '0.85rem 1rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-              <span style={{ fontSize: '0.78rem', fontWeight: 600, color: '#374151' }}>Generated Email Draft</span>
-              <button style={smallBtnStyle} onClick={copy}>{copied ? '\u2713 Copied' : '\u2398 Copy'}</button>
+              <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-primary)' }}>Generated Email Draft</span>
+              <button className="btn btn-ghost btn-sm" onClick={copy}>{copied ? '✓ Copied' : '⎘ Copy'}</button>
             </div>
-            <pre style={preStyle}>{draft}</pre>
+            <pre className="pre-block" style={{ margin: 0 }}>{draft}</pre>
           </td>
         </tr>
       )}
@@ -122,102 +111,96 @@ export default function BacklinksPage() {
   };
 
   return (
-    <main style={pageStyle}>
-      <h1 style={{ marginBottom: '1.5rem' }}>Backlinks & Outreach</h1>
-      <div style={tabBarStyle}>
+    <SharedLayout>
+      <div className="page-header">
+        <h1 className="page-title">Backlinks & Outreach</h1>
+        <p className="page-subtitle">Track your backlink profile and manage outreach pipeline.</p>
+      </div>
+
+      <div className="tab-bar">
         {(['backlinks', 'outreach'] as const).map(t => (
-          <button key={t} style={{ ...tabBtnStyle, ...(activeTab === t ? tabActiveStyle : {}) }} onClick={() => setActiveTab(t)}>
+          <button key={t} className={`tab-btn ${activeTab === t ? 'active' : ''}`} onClick={() => setActiveTab(t)}>
             {t === 'backlinks' ? 'Backlink Profile' : 'Outreach Pipeline'}
           </button>
         ))}
       </div>
 
       {activeTab === 'backlinks' && (
-        <section style={{ marginTop: '1rem' }}>
-          {backlinks.isLoading && <p style={mutedStyle}>Loading...</p>}
-          {backlinks.error && <p style={errorStyle}>{backlinks.error.message}</p>}
-          <table style={tableStyle}>
-            <thead><tr>
-              <th style={thStyle}>Source Domain</th>
-              <th style={thStyle}>Anchor Text</th>
-              <th style={thStyle}>DA</th>
-              <th style={thStyle}>Status</th>
-              <th style={thStyle}>First Seen</th>
-            </tr></thead>
-            <tbody>
-              {(backlinks.data as any[] ?? []).length === 0 && (
-                <tr><td colSpan={5} style={{ ...tdStyle, color: '#6b7280', textAlign: 'center' }}>No backlinks found. Run the agent to sync.</td></tr>
-              )}
-              {(backlinks.data as any[] ?? []).map((b: any, i: number) => (
-                <tr key={b.id} style={i % 2 === 0 ? {} : { background: '#f9fafb' }}>
-                  <td style={tdStyle}>{b.source_domain}</td>
-                  <td style={tdStyle}>{b.anchor_text ?? '\u2014'}</td>
-                  <td style={{ ...tdStyle, textAlign: 'center' }}>{b.domain_authority ?? '\u2014'}</td>
-                  <td style={tdStyle}><StatusBadge status={b.status} /></td>
-                  <td style={tdStyle}>{b.first_seen_at ? new Date(b.first_seen_at).toLocaleDateString() : '\u2014'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <section>
+          {backlinks.isLoading && <p className="text-muted">Loading...</p>}
+          {backlinks.error && <p className="text-error">{backlinks.error.message}</p>}
+          <div className="table-wrapper">
+            <table className="table">
+              <thead><tr>
+                <th>Source Domain</th>
+                <th>Anchor Text</th>
+                <th>DA</th>
+                <th>Status</th>
+                <th>First Seen</th>
+              </tr></thead>
+              <tbody>
+                {(backlinks.data as any[] ?? []).length === 0 && (
+                  <tr><td colSpan={5} style={{ textAlign: 'center', color: 'var(--text-tertiary)' }}>No backlinks found. Run the agent to sync.</td></tr>
+                )}
+                {(backlinks.data as any[] ?? []).map((b: any) => (
+                  <tr key={b.id}>
+                    <td style={{ fontWeight: 500 }}>{b.source_domain}</td>
+                    <td>{b.anchor_text ?? '—'}</td>
+                    <td style={{ textAlign: 'center' }}>{b.domain_authority ?? '—'}</td>
+                    <td><StatusBadge status={b.status} /></td>
+                    <td>{b.first_seen_at ? new Date(b.first_seen_at).toLocaleDateString() : '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </section>
       )}
 
       {activeTab === 'outreach' && (
-        <section style={{ marginTop: '1rem' }}>
-          <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '1rem', alignItems: 'flex-end' }}>
+        <section>
+          <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '1.25rem', alignItems: 'flex-end' }}>
             {[
-              { label: 'Total Prospects', value: stats.total, color: '#374151' },
-              { label: 'Pending', value: stats.pending, color: '#f59e0b' },
-              { label: 'In Progress', value: stats.contacted, color: '#3b82f6' },
-              { label: 'Links Acquired', value: stats.acquired, color: '#16a34a' },
+              { label: 'Total Prospects', value: stats.total, color: 'var(--text-primary)' },
+              { label: 'Pending', value: stats.pending, color: 'var(--warning)' },
+              { label: 'In Progress', value: stats.contacted, color: 'var(--info)' },
+              { label: 'Links Acquired', value: stats.acquired, color: 'var(--success)' },
             ].map(s => (
-              <div key={s.label} style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, padding: '0.6rem 1rem', minWidth: 110 }}>
-                <div style={{ fontSize: '0.72rem', color: '#6b7280', marginBottom: '0.15rem' }}>{s.label}</div>
+              <div key={s.label} className="stat-card" style={{ padding: '0.65rem 1rem', minWidth: 110 }}>
+                <div style={{ fontSize: '0.72rem', color: 'var(--text-tertiary)', marginBottom: '0.15rem' }}>{s.label}</div>
                 <div style={{ fontSize: '1.4rem', fontWeight: 700, color: s.color }}>{s.value}</div>
               </div>
             ))}
-            <button style={{ ...btnStyle, marginLeft: 'auto' }} disabled={findProspects.isPending} onClick={() => findProspects.mutate()}>
+            <button className="btn btn-primary" style={{ marginLeft: 'auto' }} disabled={findProspects.isPending} onClick={() => findProspects.mutate()}>
               {findProspects.isPending ? 'Searching...' : 'Find New Prospects'}
             </button>
           </div>
-          {findProspects.isSuccess && <p style={{ color: '#16a34a', fontSize: '0.875rem', marginBottom: '0.75rem' }}>Found {(findProspects.data as any)?.count ?? 0} new prospect(s)</p>}
-          {findProspects.error && <p style={errorStyle}>{findProspects.error.message}</p>}
-          {outreach.isLoading && <p style={mutedStyle}>Loading...</p>}
-          <table style={tableStyle}>
-            <thead><tr>
-              <th style={thStyle}>Domain + Contact</th>
-              <th style={thStyle}>DA</th>
-              <th style={thStyle}>Relevance</th>
-              <th style={thStyle}>Status</th>
-              <th style={thStyle}>Actions</th>
-            </tr></thead>
-            <tbody>
-              {outreachData.length === 0 && (
-                <tr><td colSpan={5} style={{ ...tdStyle, color: '#6b7280', textAlign: 'center' }}>No prospects yet. Click Find New Prospects or run the agent.</td></tr>
-              )}
-              {outreachData.map((o: any) => (
-                <OutreachRow key={o.id} o={o}
-                  onStatusChange={(id, status) => updateStatus.mutate({ id, status })}
-                  statusPending={updateStatus.isPending} />
-              ))}
-            </tbody>
-          </table>
+          {findProspects.isSuccess && <p className="text-success" style={{ marginBottom: '0.75rem' }}>Found {(findProspects.data as any)?.count ?? 0} new prospect(s)</p>}
+          {findProspects.error && <p className="text-error">{findProspects.error.message}</p>}
+          {outreach.isLoading && <p className="text-muted">Loading...</p>}
+          <div className="table-wrapper">
+            <table className="table">
+              <thead><tr>
+                <th>Domain + Contact</th>
+                <th>DA</th>
+                <th>Relevance</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr></thead>
+              <tbody>
+                {outreachData.length === 0 && (
+                  <tr><td colSpan={5} style={{ textAlign: 'center', color: 'var(--text-tertiary)' }}>No prospects yet. Click Find New Prospects or run the agent.</td></tr>
+                )}
+                {outreachData.map((o: any) => (
+                  <OutreachRow key={o.id} o={o}
+                    onStatusChange={(id, status) => updateStatus.mutate({ id, status })}
+                    statusPending={updateStatus.isPending} />
+                ))}
+              </tbody>
+            </table>
+          </div>
         </section>
       )}
-    </main>
+    </SharedLayout>
   );
 }
-
-const pageStyle: React.CSSProperties = { fontFamily: 'system-ui, sans-serif', padding: '2rem', maxWidth: 1100, margin: '0 auto' };
-const tabBarStyle: React.CSSProperties = { display: 'flex', gap: '0.25rem', borderBottom: '2px solid #e5e7eb' };
-const tabBtnStyle: React.CSSProperties = { padding: '0.5rem 1.25rem', background: 'none', border: 'none', borderBottom: '2px solid transparent', marginBottom: '-2px', cursor: 'pointer', fontSize: '0.875rem', color: '#6b7280', fontWeight: 500 };
-const tabActiveStyle: React.CSSProperties = { borderBottomColor: '#2563eb', color: '#2563eb', fontWeight: 600 };
-const tableStyle: React.CSSProperties = { width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' };
-const thStyle: React.CSSProperties = { padding: '0.6rem 0.75rem', background: '#f3f4f6', border: '1px solid #e5e7eb', textAlign: 'left', fontWeight: 600, whiteSpace: 'nowrap' };
-const tdStyle: React.CSSProperties = { padding: '0.5rem 0.75rem', border: '1px solid #e5e7eb', verticalAlign: 'top' };
-const selectStyle: React.CSSProperties = { padding: '0.25rem 0.5rem', border: '1px solid #d1d5db', borderRadius: 4, fontSize: '0.8rem', background: '#fff' };
-const btnStyle: React.CSSProperties = { padding: '0.4rem 1rem', background: '#2563eb', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: '0.875rem' };
-const smallBtnStyle: React.CSSProperties = { padding: '0.2rem 0.6rem', background: '#f3f4f6', color: '#374151', border: '1px solid #d1d5db', borderRadius: 4, cursor: 'pointer', fontSize: '0.8rem' };
-const mutedStyle: React.CSSProperties = { color: '#6b7280', fontSize: '0.875rem' };
-const errorStyle: React.CSSProperties = { color: '#dc2626', fontSize: '0.875rem' };
-const preStyle: React.CSSProperties = { background: '#fff', border: '1px solid #e5e7eb', borderRadius: 4, padding: '0.75rem', fontSize: '0.8rem', whiteSpace: 'pre-wrap', margin: 0, lineHeight: 1.6 };

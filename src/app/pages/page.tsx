@@ -2,34 +2,22 @@
 
 import { useState } from 'react';
 import { trpc } from '@/lib/trpc';
+import SharedLayout from '../SharedLayout';
 
 const ON_PAGE_TYPES = [
-  'update_title_tag',
-  'update_meta_description',
-  'add_schema_markup',
-  'fix_heading_structure',
-  'improve_content',
-  'add_internal_links',
-  'optimize_images',
-  // types from on-page auditor
-  'add_missing_meta_description',
-  'change_h1_heading',
-  'add_missing_alt_text',
-  'title_tag_too_long',
+  'update_title_tag', 'update_meta_description', 'add_schema_markup', 'fix_heading_structure',
+  'improve_content', 'add_internal_links', 'optimize_images',
+  'add_missing_meta_description', 'change_h1_heading', 'add_missing_alt_text', 'title_tag_too_long',
 ];
 
 const STATUS_COLORS: Record<string, string> = {
-  pending: '#d97706',
-  applied: '#16a34a',
-  rejected: '#dc2626',
+  pending: 'var(--warning)',
+  applied: 'var(--success)',
+  rejected: 'var(--danger)',
 };
 
-const PRIORITY_LABELS: Record<number, string> = {
-  1: 'Critical',
-  2: 'High',
-  3: 'Medium',
-  4: 'Low',
-};
+const PRIORITY_LABELS: Record<number, string> = { 1: 'Critical', 2: 'High', 3: 'Medium', 4: 'Low' };
+const PRIORITY_BADGES: Record<number, string> = { 1: 'badge-danger', 2: 'badge-warning', 3: 'badge-info', 4: 'badge-neutral' };
 
 export default function PagesPage() {
   const [rejectId, setRejectId] = useState<string | null>(null);
@@ -39,23 +27,17 @@ export default function PagesPage() {
   const { data: pagesData } = trpc.pages.list.useQuery();
   const data = rawData as any[] | undefined;
 
-  // Build page id → url map
   const pageUrlMap = ((pagesData as any[]) ?? []).reduce((acc: Record<string, string>, p: any) => {
     acc[p.id] = p.url;
     return acc;
   }, {});
 
-  // Filter to on-page types only
   const onPageRecs = (data ?? []).filter((r: any) => ON_PAGE_TYPES.includes(r.type));
-
   const approveMutation = trpc.recommendations.approve.useMutation({ onSuccess: () => refetch() });
   const rejectMutation = trpc.recommendations.reject.useMutation({
-    onSuccess: () => {
-      setRejectId(null);
-      setRejectReason('');
-      refetch();
-    },
+    onSuccess: () => { setRejectId(null); setRejectReason(''); refetch(); },
   });
+
   const grouped = onPageRecs.reduce((acc: Record<string, any[]>, rec: any) => {
     const key = rec.page_id ?? '__unknown__';
     if (!acc[key]) acc[key] = [];
@@ -64,82 +46,57 @@ export default function PagesPage() {
   }, {});
 
   return (
-    <main style={pageStyle}>
-      <h1 style={{ marginBottom: '0.5rem' }}>On-Page Audit</h1>
-      <p style={mutedStyle}>Pending on-page recommendations grouped by page.</p>
+    <SharedLayout>
+      <div className="page-header">
+        <h1 className="page-title">On-Page Audit</h1>
+        <p className="page-subtitle">Pending on-page recommendations grouped by page.</p>
+      </div>
 
-      {isLoading && <p style={mutedStyle}>Loading…</p>}
-      {error && <p style={errorStyle}>Error: {error.message}</p>}
+      {isLoading && <p className="text-muted">Loading…</p>}
+      {error && <p className="text-error">Error: {error.message}</p>}
 
       {!isLoading && !error && Object.keys(grouped).length === 0 && (
-        <p style={mutedStyle}>No pending on-page recommendations.</p>
+        <div className="empty-state">
+          <div className="empty-state-icon">▤</div>
+          <p style={{ fontSize: '1.1rem', marginBottom: '0.5rem' }}>No pending on-page recommendations.</p>
+          <p>Run the agent to generate audits.</p>
+        </div>
       )}
 
       {Object.entries(grouped).map(([pageId, recs]) => {
         const url = pageUrlMap[pageId] ?? (recs[0] as any)?.url ?? null;
         const label = url ?? (pageId === '__unknown__' ? 'Unknown page' : pageId);
         return (
-          <section key={pageId} style={sectionStyle}>
-            <h2 style={sectionTitleStyle} title={pageId !== '__unknown__' ? pageId : undefined}>
+          <section key={pageId} className="section" style={{ border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
+            <h2 style={{ margin: 0, padding: '0.8rem 1rem', background: 'var(--bg-tertiary)', fontSize: '0.95rem', fontWeight: 600, borderBottom: '1px solid var(--border-primary)', wordBreak: 'break-all', color: 'var(--text-primary)' }} title={pageId !== '__unknown__' ? pageId : undefined}>
               {label}
             </h2>
-            <table style={tableStyle}>
-              <thead>
-                <tr>
-                  <th style={thStyle}>Type</th>
-                  <th style={thStyle}>Reason</th>
-                  <th style={thStyle}>Priority</th>
-                  <th style={thStyle}>Status</th>
-                  <th style={thStyle}>Actions</th>
-                </tr>
-              </thead>
+            <table className="table">
+              <thead><tr><th>Type</th><th>Reason</th><th>Priority</th><th>Status</th><th>Actions</th></tr></thead>
               <tbody>
-                {(recs as any[]).map((rec: any, i: number) => (
-                  <tr key={rec.id} style={i % 2 === 0 ? {} : { background: '#f9fafb' }}>
-                    <td style={tdStyle}><code style={codeStyle}>{rec.type}</code></td>
-                    <td style={tdStyle}>{rec.reason ?? '—'}</td>
-                    <td style={{ ...tdStyle, textAlign: 'center' }}>
-                      {PRIORITY_LABELS[rec.priority] ?? rec.priority ?? '—'}
-                    </td>
-                    <td style={tdStyle}>
-                      <span style={{ color: STATUS_COLORS[rec.status] ?? '#374151', fontWeight: 600 }}>
-                        {rec.status}
+                {(recs as any[]).map((rec: any) => (
+                  <tr key={rec.id}>
+                    <td><span className="code">{rec.type}</span></td>
+                    <td>{rec.reason ?? '—'}</td>
+                    <td style={{ textAlign: 'center' }}>
+                      <span className={`badge ${PRIORITY_BADGES[rec.priority] ?? 'badge-neutral'}`}>
+                        {PRIORITY_LABELS[rec.priority] ?? rec.priority ?? '—'}
                       </span>
                     </td>
-                    <td style={tdStyle}>
+                    <td><span style={{ color: STATUS_COLORS[rec.status] ?? 'var(--text-primary)', fontWeight: 600 }}>{rec.status}</span></td>
+                    <td>
                       {rec.status === 'pending' && (
                         rejectId === rec.id ? (
-                          <span style={{ display: 'flex', gap: '0.4rem', alignItems: 'center', flexWrap: 'wrap' }}>
-                            <input
-                              style={inputStyle}
-                              placeholder="Reason…"
-                              value={rejectReason}
-                              onChange={e => setRejectReason(e.target.value)}
-                            />
-                            <button
-                              style={btnDanger}
-                              disabled={!rejectReason.trim() || rejectMutation.isPending}
-                              onClick={() => rejectMutation.mutate({ id: rec.id, reason: rejectReason })}
-                            >
-                              Confirm
-                            </button>
-                            <button style={btnSecondary} onClick={() => { setRejectId(null); setRejectReason(''); }}>
-                              Cancel
-                            </button>
-                          </span>
+                          <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                            <input className="input" placeholder="Reason…" value={rejectReason} onChange={e => setRejectReason(e.target.value)} style={{ width: 160, fontSize: '0.82rem', padding: '0.3rem 0.5rem' }} />
+                            <button className="btn btn-danger btn-sm" disabled={!rejectReason.trim() || rejectMutation.isPending} onClick={() => rejectMutation.mutate({ id: rec.id, reason: rejectReason })}>Confirm</button>
+                            <button className="btn btn-ghost btn-sm" onClick={() => { setRejectId(null); setRejectReason(''); }}>Cancel</button>
+                          </div>
                         ) : (
-                          <span style={{ display: 'flex', gap: '0.4rem' }}>
-                            <button
-                              style={btnSuccess}
-                              disabled={approveMutation.isPending}
-                              onClick={() => approveMutation.mutate({ id: rec.id })}
-                            >
-                              Approve
-                            </button>
-                            <button style={btnDanger} onClick={() => setRejectId(rec.id)}>
-                              Reject
-                            </button>
-                          </span>
+                          <div style={{ display: 'flex', gap: '0.4rem' }}>
+                            <button className="btn btn-success btn-sm" disabled={approveMutation.isPending} onClick={() => approveMutation.mutate({ id: rec.id })}>Approve</button>
+                            <button className="btn btn-danger btn-sm" onClick={() => setRejectId(rec.id)}>Reject</button>
+                          </div>
                         )
                       )}
                     </td>
@@ -150,83 +107,6 @@ export default function PagesPage() {
           </section>
         );
       })}
-    </main>
+    </SharedLayout>
   );
 }
-
-// --- Styles ---
-const pageStyle: React.CSSProperties = {
-  fontFamily: 'system-ui, sans-serif',
-  padding: '2rem',
-  maxWidth: 1100,
-  margin: '0 auto',
-};
-
-const sectionStyle: React.CSSProperties = {
-  marginBottom: '2rem',
-  border: '1px solid #e5e7eb',
-  borderRadius: 8,
-  overflow: 'hidden',
-};
-
-const sectionTitleStyle: React.CSSProperties = {
-  margin: 0,
-  padding: '0.75rem 1rem',
-  background: '#f3f4f6',
-  fontSize: '0.95rem',
-  fontWeight: 600,
-  borderBottom: '1px solid #e5e7eb',
-  wordBreak: 'break-all',
-};
-
-const tableStyle: React.CSSProperties = {
-  width: '100%',
-  borderCollapse: 'collapse',
-  fontSize: '0.875rem',
-};
-
-const thStyle: React.CSSProperties = {
-  padding: '0.6rem 0.75rem',
-  background: '#f9fafb',
-  border: '1px solid #e5e7eb',
-  textAlign: 'left',
-  fontWeight: 600,
-  whiteSpace: 'nowrap',
-};
-
-const tdStyle: React.CSSProperties = {
-  padding: '0.5rem 0.75rem',
-  border: '1px solid #e5e7eb',
-  verticalAlign: 'middle',
-};
-
-const codeStyle: React.CSSProperties = {
-  background: '#f3f4f6',
-  padding: '0.1rem 0.35rem',
-  borderRadius: 3,
-  fontSize: '0.8rem',
-};
-
-const inputStyle: React.CSSProperties = {
-  padding: '0.3rem 0.5rem',
-  border: '1px solid #d1d5db',
-  borderRadius: 4,
-  fontSize: '0.8rem',
-  width: 160,
-};
-
-const btnBase: React.CSSProperties = {
-  padding: '0.3rem 0.65rem',
-  border: 'none',
-  borderRadius: 4,
-  fontSize: '0.8rem',
-  cursor: 'pointer',
-  fontWeight: 500,
-};
-
-const btnSuccess: React.CSSProperties = { ...btnBase, background: '#16a34a', color: '#fff' };
-const btnDanger: React.CSSProperties = { ...btnBase, background: '#dc2626', color: '#fff' };
-const btnSecondary: React.CSSProperties = { ...btnBase, background: '#e5e7eb', color: '#374151' };
-
-const mutedStyle: React.CSSProperties = { color: '#6b7280', fontSize: '0.875rem' };
-const errorStyle: React.CSSProperties = { color: '#dc2626', fontSize: '0.875rem' };
