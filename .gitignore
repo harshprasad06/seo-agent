@@ -1,0 +1,18 @@
+# env files - NEVER commit these
+.env
+.env.local
+.env*.local
+
+# dependencies
+node_modules/
+
+# Next.js
+.next/
+out/
+
+# build
+dist/
+
+# misc
+.DS_Store
+*.tsbuildinfo
