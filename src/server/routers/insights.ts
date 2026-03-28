@@ -24,6 +24,36 @@ export const insightsRouter = router({
   }),
 
   /**
+   * Returns last 7 days of GA4 organic traffic data for the dashboard widget.
+   */
+  gaTraffic: protectedProcedure.query(async ({ ctx }) => {
+    const today = new Date();
+    const startDate = new Date(today);
+    startDate.setDate(startDate.getDate() - 6);
+    const fmt = (d: Date) => d.toISOString().slice(0, 10);
+
+    const { data, error } = await ctx.db
+      .from('ga_data_points')
+      .select('date, organic_sessions, landing_page')
+      .gte('date', fmt(startDate))
+      .lte('date', fmt(today))
+      .order('date', { ascending: true });
+
+    if (error) throw new Error(`Failed to fetch GA traffic: ${error.message}`);
+
+    // Aggregate by date
+    const byDate: Record<string, number> = {};
+    for (const row of (data ?? []) as any[]) {
+      byDate[row.date] = (byDate[row.date] ?? 0) + (row.organic_sessions ?? 0);
+    }
+
+    const totalSessions = Object.values(byDate).reduce((a, b) => a + b, 0);
+    const days = Object.entries(byDate).map(([date, sessions]) => ({ date, sessions }));
+
+    return { totalSessions, days };
+  }),
+
+  /**
    * Fetches last 2 weeks of GA data and runs root-cause analysis if drop >= 20%.
    * Validates: Requirements 8.5, 8.6
    */

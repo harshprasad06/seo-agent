@@ -277,7 +277,44 @@ function AutoFixFeed() {
   );
 }
 
-// ── Top Insights ─────────────────────────────────────────────────────────────
+// ── GA4 Traffic Widget ────────────────────────────────────────────────────────
+
+function GATrafficWidget() {
+  const { data, isLoading } = trpc.insights.gaTraffic.useQuery();
+  const ga = data as any;
+
+  const maxSessions = ga?.days?.length
+    ? Math.max(...ga.days.map((d: any) => d.sessions), 1)
+    : 1;
+
+  return (
+    <div className="card-flat">
+      <div className="card-header">
+        <span className="card-title">Organic Traffic (Last 7 Days)</span>
+        {ga && <span className="badge badge-success">{ga.totalSessions} sessions</span>}
+      </div>
+      {isLoading && <p className="text-muted">Loading…</p>}
+      {!isLoading && (!ga?.days?.length) && (
+        <p className="text-muted">No GA4 data yet. Run the agent after connecting Google Analytics.</p>
+      )}
+      {ga?.days?.length > 0 && (
+        <div style={{ display: 'flex', alignItems: 'flex-end', gap: '0.35rem', height: 80, marginTop: '0.75rem' }}>
+          {ga.days.map((d: any) => {
+            const pct = Math.max(4, Math.round((d.sessions / maxSessions) * 100));
+            const label = d.date.slice(5); // MM-DD
+            return (
+              <div key={d.date} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.25rem' }}>
+                <span style={{ fontSize: '0.65rem', color: 'var(--text-tertiary)' }}>{d.sessions}</span>
+                <div style={{ width: '100%', height: `${pct}%`, background: 'var(--primary)', borderRadius: '3px 3px 0 0', opacity: 0.85 }} />
+                <span style={{ fontSize: '0.6rem', color: 'var(--text-tertiary)', whiteSpace: 'nowrap' }}>{label}</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function TopInsights() {
   const { data: rawData, isLoading } = trpc.insights.feed.useQuery();
@@ -328,6 +365,7 @@ export default function DashboardPage() {
         <AutoFixFeed />
       </div>
 
+      <GATrafficWidget />
       <TopInsights />
     </SharedLayout>
   );

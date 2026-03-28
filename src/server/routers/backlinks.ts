@@ -41,6 +41,21 @@ export const backlinksRouter = router({
       return { draft };
     }),
 
+  followUpDue: protectedProcedure.query(async ({ ctx }) => {
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+    const { data, error } = await ctx.db
+      .from('outreach_opportunities')
+      .select('*')
+      .eq('status', 'contacted')
+      .lte('updated_at', sevenDaysAgo.toISOString())
+      .order('updated_at', { ascending: true });
+
+    if (error) throw new Error(`Failed to fetch follow-up due: ${error.message}`);
+    return data ?? [];
+  }),
+
   findProspects: protectedProcedure.mutation(async () => {
     const { runOutreachProspector } = await import('../../agent/tools/outreach-prospector');
     const count = await runOutreachProspector();

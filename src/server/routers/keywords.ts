@@ -1,11 +1,19 @@
 import { z } from 'zod';
 import { router, protectedProcedure } from '../trpc';
+import { runKeywordDiscovery } from '../../agent/tools/keyword-discovery';
 
 /**
  * tRPC router for keyword ranking table with optional filters.
  * Validates: Requirement 10.5
  */
 export const keywordsRouter = router({
+  /**
+   * Manually trigger keyword discovery from GSC data.
+   */
+  discover: protectedProcedure.mutation(async () => {
+    const count = await runKeywordDiscovery();
+    return { count };
+  }),
   /**
    * Returns keywords with optional filters.
    * If competitor_domain is provided, joins with competitor_keywords to include

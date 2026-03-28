@@ -88,6 +88,24 @@ export async function POST(req: NextRequest) {
           }
         } catch { log('GSC Sync', 'info', 'GSC not connected yet'); }
 
+        // ── 4b. GA4 sync directly ──────────────────────────────────────────
+        log('GA4 Sync', 'info', 'Fetching organic traffic from Google Analytics…');
+        try {
+          const { data: tokenData } = await supabaseAdmin
+            .from('oauth_tokens').select('provider').eq('provider', 'gsc').single();
+          if (!tokenData) {
+            log('GA4 Sync', 'info', 'No Google token — connect Google in Settings first');
+          } else if (!process.env.GA4_PROPERTY_ID) {
+            log('GA4 Sync', 'info', 'GA4_PROPERTY_ID not set in .env.local');
+          } else {
+            const { runGaSyncDirect } = await import('@/workers/ga-sync-direct');
+            const rows = await runGaSyncDirect();
+            log('GA4 Sync', 'ok', `${rows} row(s) synced from GA4`);
+          }
+        } catch (e: any) {
+          log('GA4 Sync', 'error', e.message);
+        }
+
         // ── 5. Run site crawl directly (no pg-boss needed) ────────────────
         log('Site Crawl', 'info', `Crawling ${process.env.SITE_URL ?? 'learnwealthx.in'}…`);
         try {
@@ -106,6 +124,16 @@ export async function POST(req: NextRequest) {
           log('Keyword Tracker', 'ok', `${count} keyword(s) updated with live positions`);
         } catch (e: any) {
           log('Keyword Tracker', 'error', e.message);
+        }
+
+        // ── 6b. Keyword discovery from GSC ────────────────────────────────
+        log('Keyword Discovery', 'info', 'Finding new opportunities from GSC queries…');
+        try {
+          const { runKeywordDiscovery } = await import('@/agent/tools/keyword-discovery');
+          const count = await runKeywordDiscovery();
+          log('Keyword Discovery', 'ok', count > 0 ? `${count} new keyword(s) discovered` : 'No new opportunities (need GSC data)');
+        } catch (e: any) {
+          log('Keyword Discovery', 'error', e.message);
         }
 
         // ── 7. Backlink sync ───────────────────────────────────────────────
@@ -142,6 +170,25 @@ export async function POST(req: NextRequest) {
           log('Outreach Prospector', 'ok', `${count} new prospect(s) found`);
         } catch (e: any) {
           log('Outreach Prospector', 'error', e.message);
+        }
+
+        // ── 7c2. Follow-up check ───────────────────────────────────────────
+        try {
+          const sevenDaysAgo = new Date();
+          sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+          const { data: overdue } = await supabaseAdmin
+            .from('outreach_opportunities')
+            .select('source_domain')
+            .eq('status', 'contacted')
+            .lte('updated_at', sevenDaysAgo.toISOString());
+          const overdueCount = (overdue as any[])?.length ?? 0;
+          if (overdueCount > 0) {
+            log('Follow-up Check', 'info', `${overdueCount} prospect(s) need a follow-up — check Backlinks → Outreach Pipeline`);
+          } else {
+            log('Follow-up Check', 'ok', 'No overdue follow-ups');
+          }
+        } catch (e: any) {
+          log('Follow-up Check', 'error', e.message);
         }
 
         // ── 7d. CRO audit ──────────────────────────────────────────────────

@@ -38,7 +38,8 @@ function PostCard({ post, onAction }: { post: Post; onAction: () => void }) {
   const approve = trpc.content.approveBlogPost.useMutation({ onSuccess: onAction });
   const reject = trpc.content.rejectBlogPost.useMutation({ onSuccess: onAction });
   const regen = trpc.content.regenerateBlogPost.useMutation({ onSuccess: () => { fullPost.refetch(); onAction(); } });
-  const busy = update.isPending || approve.isPending || reject.isPending || regen.isPending;
+  const linkify = trpc.content.addInternalLinks.useMutation({ onSuccess: () => { fullPost.refetch(); onAction(); } });
+  const busy = update.isPending || approve.isPending || reject.isPending || regen.isPending || linkify.isPending;
 
   function handleExpand() {
     setExpanded(e => !e);
@@ -63,8 +64,11 @@ function PostCard({ post, onAction }: { post: Post; onAction: () => void }) {
 
       {post.status === 'draft' && (
         <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.85rem', flexWrap: 'wrap', alignItems: 'center' }}>
-          <button className="btn btn-success btn-sm" onClick={() => approve.mutate({ id: post.id })} disabled={busy}>
-            {approve.isPending ? 'Opening PR…' : '✓ Approve & Publish'}
+          <button className="btn btn-success btn-sm" onClick={() => approve.mutate({ id: post.id, mode: 'direct' })} disabled={busy}>
+            {approve.isPending ? 'Publishing…' : '🚀 Publish Directly'}
+          </button>
+          <button className="btn btn-primary btn-sm" onClick={() => approve.mutate({ id: post.id, mode: 'pr' })} disabled={busy}>
+            {approve.isPending ? 'Opening PR…' : '↗ Open PR'}
           </button>
           <button className="btn btn-primary btn-sm" onClick={() => { setEditMode(e => !e); if (!expanded) setExpanded(true); }} disabled={busy}>
             ✎ Edit
@@ -72,6 +76,14 @@ function PostCard({ post, onAction }: { post: Post; onAction: () => void }) {
           <button className="btn btn-ghost btn-sm" onClick={() => regen.mutate({ id: post.id })} disabled={busy}>
             {regen.isPending ? 'Regenerating…' : '↺ Regenerate'}
           </button>
+          <button className="btn btn-ghost btn-sm" onClick={() => linkify.mutate({ id: post.id })} disabled={busy} title="Auto-inject internal links">
+            {linkify.isPending ? 'Linking…' : '🔗 Add Links'}
+          </button>
+          {linkify.isSuccess && (
+            <span style={{ fontSize: '0.78rem', color: 'var(--success)' }}>
+              ✓ {(linkify.data as any)?.linksAdded ?? 0} link(s) added
+            </span>
+          )}
           <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
             <input className="input" placeholder="Reject reason (optional)" value={rejectNote} onChange={e => setRejectNote(e.target.value)} style={{ width: 200, fontSize: '0.8rem', padding: '0.3rem 0.5rem' }} />
             <button className="btn btn-danger btn-sm" onClick={() => reject.mutate({ id: post.id, note: rejectNote })} disabled={busy}>✕ Reject</button>
@@ -81,7 +93,9 @@ function PostCard({ post, onAction }: { post: Post; onAction: () => void }) {
 
       {post.status === 'approved' && post.pr_url && (
         <div style={{ marginTop: '0.6rem' }}>
-          <a href={post.pr_url} target="_blank" rel="noreferrer" style={{ color: 'var(--primary)', fontSize: '0.875rem' }}>View PR on GitHub →</a>
+          <a href={post.pr_url} target="_blank" rel="noreferrer" style={{ color: 'var(--primary)', fontSize: '0.875rem' }}>
+            View on GitHub →
+          </a>
         </div>
       )}
 
@@ -115,7 +129,25 @@ function PostCard({ post, onAction }: { post: Post; onAction: () => void }) {
                 </div>
               </div>
             ) : (
-              <pre className="pre-block">{fullPost.data.mdx_content as string}</pre>
+              <>
+                {/* Extract and show featured image from frontmatter */}
+                {(() => {
+                  const mdx = fullPost.data.mdx_content as string;
+                  const imgMatch = mdx.match(/^image:\s*"([^"]+)"/m);
+                  return imgMatch ? (
+                    <div style={{ marginBottom: '1rem' }}>
+                      <p style={{ fontSize: '0.78rem', color: 'var(--text-tertiary)', marginBottom: '0.4rem' }}>Featured Image (AI-generated)</p>
+                      <img
+                        src={imgMatch[1]}
+                        alt={post.title}
+                        style={{ width: '100%', maxWidth: 600, borderRadius: 8, border: '1px solid var(--border-primary)' }}
+                        loading="lazy"
+                      />
+                    </div>
+                  ) : null;
+                })()}
+                <pre className="pre-block">{fullPost.data.mdx_content as string}</pre>
+              </>
             )
           )}
         </div>

@@ -20,10 +20,11 @@ function StatusBadge({ status }: { status: string }) {
   return <span className={`badge ${cls}`}>{status.replace(/_/g, ' ')}</span>;
 }
 
-function OutreachRow({ o, onStatusChange, statusPending }: {
+function OutreachRow({ o, onStatusChange, statusPending, isOverdue }: {
   o: any;
   onStatusChange: (id: string, status: string) => void;
   statusPending: boolean;
+  isOverdue?: boolean;
 }) {
   const [showDraft, setShowDraft] = useState(false);
   const [draft, setDraft] = useState<string>(o.email_draft ?? '');
@@ -41,8 +42,13 @@ function OutreachRow({ o, onStatusChange, statusPending }: {
 
   return (
     <>
-      <tr>
+      <tr style={isOverdue ? { background: '#fffbeb' } : {}}>
         <td>
+          {isOverdue && (
+            <span style={{ fontSize: '0.72rem', background: '#fef3c7', color: '#92400e', border: '1px solid #f59e0b', borderRadius: 10, padding: '0.05rem 0.4rem', fontWeight: 600, display: 'inline-block', marginBottom: '0.25rem' }}>
+              ⏰ Follow up
+            </span>
+          )}
           <div style={{ fontWeight: 600, fontSize: '0.85rem' }}>{o.source_domain}</div>
           {(o.links_to_competitors ?? []).length > 0 && (
             <div style={{ fontSize: '0.72rem', color: 'var(--text-tertiary)', marginTop: '0.15rem' }}>
@@ -99,7 +105,8 @@ export default function BacklinksPage() {
 
   const backlinks = trpc.backlinks.list.useQuery();
   const outreach = trpc.backlinks.outreach.useQuery();
-  const updateStatus = trpc.backlinks.updateOutreachStatus.useMutation({ onSuccess: () => outreach.refetch() });
+  const followUpDue = trpc.backlinks.followUpDue.useQuery();
+  const updateStatus = trpc.backlinks.updateOutreachStatus.useMutation({ onSuccess: () => { outreach.refetch(); followUpDue.refetch(); } });
   const findProspects = trpc.backlinks.findProspects.useMutation({ onSuccess: () => outreach.refetch() });
 
   const outreachData = (outreach.data ?? []) as any[];
@@ -159,6 +166,20 @@ export default function BacklinksPage() {
 
       {activeTab === 'outreach' && (
         <section>
+          {/* Follow-up alert banner */}
+          {(followUpDue.data as any[] ?? []).length > 0 && (
+            <div style={{ background: '#fef3c7', border: '1px solid #f59e0b', borderRadius: 8, padding: '0.75rem 1rem', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <span style={{ fontSize: '1.1rem' }}>⏰</span>
+              <div>
+                <span style={{ fontWeight: 600, color: '#92400e', fontSize: '0.875rem' }}>
+                  {(followUpDue.data as any[]).length} prospect{(followUpDue.data as any[]).length !== 1 ? 's' : ''} need a follow-up
+                </span>
+                <span style={{ color: '#b45309', fontSize: '0.8rem', marginLeft: '0.5rem' }}>
+                  — contacted 7+ days ago with no response
+                </span>
+              </div>
+            </div>
+          )}
           <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '1.25rem', alignItems: 'flex-end' }}>
             {[
               { label: 'Total Prospects', value: stats.total, color: 'var(--text-primary)' },
@@ -191,11 +212,14 @@ export default function BacklinksPage() {
                 {outreachData.length === 0 && (
                   <tr><td colSpan={5} style={{ textAlign: 'center', color: 'var(--text-tertiary)' }}>No prospects yet. Click Find New Prospects or run the agent.</td></tr>
                 )}
-                {outreachData.map((o: any) => (
-                  <OutreachRow key={o.id} o={o}
-                    onStatusChange={(id, status) => updateStatus.mutate({ id, status })}
-                    statusPending={updateStatus.isPending} />
-                ))}
+                {outreachData.map((o: any) => {
+                  const isOverdue = (followUpDue.data as any[] ?? []).some((f: any) => f.id === o.id);
+                  return (
+                    <OutreachRow key={o.id} o={o} isOverdue={isOverdue}
+                      onStatusChange={(id, status) => updateStatus.mutate({ id, status })}
+                      statusPending={updateStatus.isPending} />
+                  );
+                })}
               </tbody>
             </table>
           </div>

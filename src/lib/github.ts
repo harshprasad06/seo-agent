@@ -38,7 +38,35 @@ export async function getFileSha(path: string): Promise<{ sha: string; content: 
   };
 }
 
-/** Create or update a file in the repo on a new branch, then open a PR */
+/** Commit a file directly to the default branch (no PR) */
+export async function commitDirectly(params: {
+  filePath: string;
+  fileContent: string;
+  commitMessage: string;
+}): Promise<string> {
+  const { filePath, fileContent, commitMessage } = params;
+  const base = repoBase();
+  const branch = defaultBranch();
+
+  // Get existing file SHA if it exists (needed for update vs create)
+  const existing = await getFileSha(filePath);
+
+  const body: Record<string, unknown> = {
+    message: commitMessage,
+    content: Buffer.from(fileContent).toString('base64'),
+    branch,
+  };
+  if (existing) body.sha = existing.sha;
+
+  const res = await fetch(`${base}/contents/${filePath}`, {
+    method: 'PUT',
+    headers: headers(),
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`Failed to commit file: ${await res.text()}`);
+  const data = await res.json();
+  return data.content?.html_url ?? `https://github.com/${process.env.GITHUB_REPO_OWNER}/${process.env.GITHUB_REPO_NAME}/blob/${branch}/${filePath}`;
+}
 export async function createPullRequest(params: {
   title: string;
   body: string;

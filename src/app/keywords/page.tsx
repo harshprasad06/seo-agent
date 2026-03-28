@@ -19,14 +19,34 @@ export default function KeywordsPage() {
     competitor_domain: competitorDomain.trim() !== '' ? competitorDomain.trim() : undefined,
   };
 
-  const { data, isLoading, error } = trpc.keywords.list.useQuery(filters);
+  const { data, isLoading, error, refetch } = trpc.keywords.list.useQuery(filters);
+  const discover = trpc.keywords.discover.useMutation({ onSuccess: () => refetch() });
   const showCompetitorCol = !!filters.competitor_domain;
 
   return (
     <SharedLayout>
-      <div className="page-header">
-        <h1 className="page-title">Keyword Rankings</h1>
-        <p className="page-subtitle">Monitor your keyword positions and track improvements over time.</p>
+      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
+        <div>
+          <h1 className="page-title">Keyword Rankings</h1>
+          <p className="page-subtitle">Monitor your keyword positions and track improvements over time.</p>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.4rem' }}>
+          <button
+            className="btn btn-primary btn-sm"
+            disabled={discover.isPending}
+            onClick={() => discover.mutate()}
+          >
+            {discover.isPending ? 'Discovering…' : '🔍 Discover from GSC'}
+          </button>
+          {discover.isSuccess && (
+            <span style={{ fontSize: '0.78rem', color: 'var(--success)' }}>
+              ✓ {(discover.data as any)?.count ?? 0} new keyword(s) found
+            </span>
+          )}
+          {discover.error && (
+            <span style={{ fontSize: '0.78rem', color: 'var(--danger)' }}>{discover.error.message}</span>
+          )}
+        </div>
       </div>
 
       {/* Filters */}

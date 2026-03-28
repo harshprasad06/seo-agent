@@ -68,12 +68,21 @@ export const contentRouter = router({
       return { success: true };
     }),
 
-  /** Approve a draft — opens GitHub PR */
-  approveBlogPost: protectedProcedure
+  /** Add internal links to a blog post */
+  addInternalLinks: protectedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ input }) => {
-      const prUrl = await publishBlogPost(input.id);
-      return { prUrl };
+      const { addInternalLinks } = await import('../../agent/tools/internal-linker');
+      const count = await addInternalLinks(input.id);
+      return { linksAdded: count };
+    }),
+
+  /** Approve a draft — commits directly to main or opens a PR */
+  approveBlogPost: protectedProcedure
+    .input(z.object({ id: z.string().uuid(), mode: z.enum(['direct', 'pr']).default('direct') }))
+    .mutation(async ({ input }) => {
+      const url = await publishBlogPost(input.id, input.mode);
+      return { url, mode: input.mode };
     }),
 
   /** Reject a draft */
