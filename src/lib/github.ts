@@ -43,8 +43,9 @@ export async function commitDirectly(params: {
   filePath: string;
   fileContent: string;
   commitMessage: string;
+  isBase64?: boolean; // if true, fileContent is already base64
 }): Promise<string> {
-  const { filePath, fileContent, commitMessage } = params;
+  const { filePath, fileContent, commitMessage, isBase64 = false } = params;
   const base = repoBase();
   const branch = defaultBranch();
 
@@ -53,7 +54,7 @@ export async function commitDirectly(params: {
 
   const body: Record<string, unknown> = {
     message: commitMessage,
-    content: Buffer.from(fileContent).toString('base64'),
+    content: isBase64 ? fileContent : Buffer.from(fileContent).toString('base64'),
     branch,
   };
   if (existing) body.sha = existing.sha;

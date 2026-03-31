@@ -12,8 +12,8 @@ const genAI = new GoogleGenerativeAI(
   process.env.GEMINI_API_KEY ?? process.env.GOOGLE_GEMINI_API_KEY ?? '',
 );
 
-const SITE_NAME = 'LearnWealthX';
-const SITE_DOMAIN = 'learnwealthx.in';
+const SITE_NAME = process.env.SITE_NAME ?? 'LearnWealthX';
+const SITE_DOMAIN = (process.env.SITE_URL ?? 'https://www.learnwealthx.in').replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '');
 
 // Gemini models to try in order
 const GEMINI_MODELS = ['gemini-2.0-flash-lite', 'gemini-1.5-flash-8b', 'gemini-1.5-flash'];
@@ -107,10 +107,11 @@ Return ONLY a valid JSON array, no markdown, no explanation:
   return JSON.parse(json) as BlogIdea[];
 }
 
-// ── Featured image generation (Unsplash Source — free, instant, reliable) ────
+// ── Featured image generation ─────────────────────────────────────────────────
 
 function generateImageUrl(title: string, keyword: string): string {
-  // Unsplash Source returns a random relevant photo instantly — no generation delay
+  // Unsplash Source — instant, free, no API key
+  // Used as placeholder in MDX; actual stored image committed separately
   const query = encodeURIComponent(keyword.split(' ').slice(0, 3).join(' '));
   return `https://source.unsplash.com/1200x630/?${query},india,education`;
 }
@@ -130,10 +131,10 @@ ${idea.h2Outline.map((h, i) => `${i + 1}. ${h}`).join('\n')}
 
 Requirements:
 - Write in MDX format (plain Markdown, no JSX components)
-- Start with frontmatter (title, description, date, keywords, author, image)
+- Start with frontmatter between --- delimiters (MUST have opening AND closing ---)
 - Use the target keyword naturally in the intro, at least 2 H2s, and conclusion
 - Write in a helpful, educational tone for Indian learners
-- End with a CTA to explore courses on ${SITE_NAME}
+- Do NOT include a CTA at the end — the page template adds one automatically
 - Output ONLY the MDX content, no explanation
 
 Format:
@@ -146,11 +147,25 @@ author: "${SITE_NAME} Team"
 image: "${imageUrl}"
 ---
 
-![Featured image for ${idea.title}](${imageUrl})
+[content starts here, NO frontmatter repeated]`;
 
-[content]`;
+  let content = await generateWithFallback(prompt);
 
-  return generateWithFallback(prompt);
+  // Fix malformed frontmatter — ensure closing --- exists
+  const frontmatterStart = content.indexOf('---');
+  if (frontmatterStart !== -1) {
+    const afterFirst = content.indexOf('\n', frontmatterStart) + 1;
+    const closingDash = content.indexOf('\n---', afterFirst);
+    if (closingDash === -1) {
+      // No closing --- found — find where frontmatter ends (first blank line or heading)
+      const firstHeading = content.search(/\n#/);
+      const firstBlank = content.indexOf('\n\n', afterFirst);
+      const insertAt = firstHeading !== -1 ? firstHeading : firstBlank !== -1 ? firstBlank : afterFirst + 200;
+      content = content.slice(0, insertAt) + '\n---\n' + content.slice(insertAt);
+    }
+  }
+
+  return content;
 }
 
 // ── Auto-generate and save drafts ─────────────────────────────────────────────
@@ -203,6 +218,22 @@ export async function autoGenerateBlogDrafts(count = 3): Promise<string[]> {
       await addInternalLinks(data.id as string);
     } catch (e: any) {
       console.warn(`[blog-writer] Internal linking failed: ${e.message}`);
+    }
+
+    // Store image in GitHub repo
+    try {
+      const { generateAndStoreImage } = await import('./image-generator');
+      const storedImageUrl = await generateAndStoreImage(slug, idea.keyword);
+      // Update MDX with the stored image URL
+      const { data: postData } = await supabaseAdmin.from('blog_posts').select('mdx_content').eq('id', data.id as string).single();
+      if (postData) {
+        let mdx = (postData as any).mdx_content as string;
+        mdx = mdx.replace(/^image:.*$/m, `image: "${storedImageUrl}"`);
+        mdx = mdx.replace(/!\[Featured image[^\]]*\]\([^)]+\)/, `![Featured image for ${slug}](${storedImageUrl})`);
+        await supabaseAdmin.from('blog_posts').update({ mdx_content: mdx, updated_at: new Date().toISOString() }).eq('id', data.id as string);
+      }
+    } catch (e: any) {
+      console.warn(`[blog-writer] Image storage failed (using Unsplash URL): ${e.message}`);
     }
 
     ids.push(data.id as string);

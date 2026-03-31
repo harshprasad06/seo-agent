@@ -71,12 +71,17 @@ async function auditCrawlResult(
     const actionType = 'change_h1_heading';
     const classification = classifyAction(actionType);
 
+    // Use title tag as suggested H1 (strip site name suffix if present)
+    const suggestedH1 = page.title_tag
+      ? page.title_tag.replace(/\s*[|\-–].*$/, '').trim()
+      : page.url.split('/').filter(Boolean).pop()?.replace(/-/g, ' ') ?? 'Welcome';
+
     if (classification === 'RECOMMENDATION') {
       await createRecommendation({
         type: actionType,
         pageId: page_id,
         currentState: { h1: null, url: page.url },
-        proposedChange: { h1: '[to be determined]', url: page.url },
+        proposedChange: { h1: suggestedH1, url: page.url },
         reason: `Page "${page.url}" is missing an H1 heading, which is required for on-page SEO.`,
         expectedImpact: 'Improved keyword relevance signals and crawlability for this page.',
         priority: 3,

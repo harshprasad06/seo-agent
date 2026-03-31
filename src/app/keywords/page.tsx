@@ -21,6 +21,9 @@ export default function KeywordsPage() {
 
   const { data, isLoading, error, refetch } = trpc.keywords.list.useQuery(filters);
   const discover = trpc.keywords.discover.useMutation({ onSuccess: () => refetch() });
+  const addKw = trpc.keywords.add.useMutation({ onSuccess: () => { refetch(); setNewKw(''); } });
+  const removeKw = trpc.keywords.remove.useMutation({ onSuccess: () => refetch() });
+  const [newKw, setNewKw] = useState('');
   const showCompetitorCol = !!filters.competitor_domain;
 
   return (
@@ -31,6 +34,19 @@ export default function KeywordsPage() {
           <p className="page-subtitle">Monitor your keyword positions and track improvements over time.</p>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.4rem' }}>
+          <div style={{ display: 'flex', gap: '0.4rem' }}>
+            <input
+              className="input"
+              placeholder="Add keyword…"
+              value={newKw}
+              onChange={e => setNewKw(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter' && newKw.trim()) addKw.mutate({ keyword: newKw.trim() }); }}
+              style={{ width: 180, fontSize: '0.8rem' }}
+            />
+            <button className="btn btn-primary btn-sm" disabled={addKw.isPending || !newKw.trim()} onClick={() => addKw.mutate({ keyword: newKw.trim() })}>
+              + Add
+            </button>
+          </div>
           <button
             className="btn btn-primary btn-sm"
             disabled={discover.isPending}
@@ -94,6 +110,7 @@ export default function KeywordsPage() {
                 <th>Intent</th>
                 <th>Status</th>
                 {showCompetitorCol && <th>Competitor Pos.</th>}
+                <th></th>
               </tr>
             </thead>
             <tbody>
@@ -127,6 +144,14 @@ export default function KeywordsPage() {
                     <td>{kw.intent_cluster ? <span className="badge badge-primary">{kw.intent_cluster}</span> : '—'}</td>
                     <td>{kw.status ? <span className="badge badge-neutral">{kw.status}</span> : '—'}</td>
                     {showCompetitorCol && <td style={{ textAlign: 'center' }}>{kw.competitor_position ?? '—'}</td>}
+                    <td>
+                      <button
+                        className="btn btn-ghost btn-sm"
+                        style={{ fontSize: '0.72rem', color: 'var(--danger)' }}
+                        disabled={removeKw.isPending}
+                        onClick={() => removeKw.mutate({ id: kw.id })}
+                      >✕</button>
+                    </td>
                   </tr>
                 );
               })}

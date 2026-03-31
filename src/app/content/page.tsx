@@ -38,8 +38,9 @@ function PostCard({ post, onAction }: { post: Post; onAction: () => void }) {
   const approve = trpc.content.approveBlogPost.useMutation({ onSuccess: onAction });
   const reject = trpc.content.rejectBlogPost.useMutation({ onSuccess: onAction });
   const regen = trpc.content.regenerateBlogPost.useMutation({ onSuccess: () => { fullPost.refetch(); onAction(); } });
+  const regenImage = trpc.content.regenerateImage.useMutation({ onSuccess: () => { fullPost.refetch(); onAction(); } });
   const linkify = trpc.content.addInternalLinks.useMutation({ onSuccess: () => { fullPost.refetch(); onAction(); } });
-  const busy = update.isPending || approve.isPending || reject.isPending || regen.isPending || linkify.isPending;
+  const busy = update.isPending || approve.isPending || reject.isPending || regen.isPending || linkify.isPending || regenImage.isPending;
 
   function handleExpand() {
     setExpanded(e => !e);
@@ -75,6 +76,9 @@ function PostCard({ post, onAction }: { post: Post; onAction: () => void }) {
           </button>
           <button className="btn btn-ghost btn-sm" onClick={() => regen.mutate({ id: post.id })} disabled={busy}>
             {regen.isPending ? 'Regenerating…' : '↺ Regenerate'}
+          </button>
+          <button className="btn btn-ghost btn-sm" onClick={() => regenImage.mutate({ id: post.id })} disabled={busy} title="Fetch a new image from Unsplash and store it">
+            {regenImage.isPending ? 'Fetching image…' : '🖼 New Image'}
           </button>
           <button className="btn btn-ghost btn-sm" onClick={() => linkify.mutate({ id: post.id })} disabled={busy} title="Auto-inject internal links">
             {linkify.isPending ? 'Linking…' : '🔗 Add Links'}

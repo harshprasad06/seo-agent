@@ -15,7 +15,7 @@ export interface AutoFixParams {
   recommendationId?: string;
 }
 
-const METADATA_FIX_TYPES = ['title_tag_change', 'meta_description', 'keywords'];
+const METADATA_FIX_TYPES = ['title_tag_change', 'meta_description', 'keywords', 'change_h1_heading'];
 
 /**
  * Writes an append-only audit_log entry, applies the fix via GitHub PR
@@ -40,13 +40,19 @@ export async function executeAutoFix(params: AutoFixParams): Promise<void> {
         const filePath = urlToFilePath(page.url as string);
         const fixType = actionType === 'title_tag_change' ? 'title_tag'
           : actionType === 'meta_description' ? 'meta_description'
+          : actionType === 'change_h1_heading' ? 'h1_heading'
           : 'keywords';
+
+        // Extract the correct value based on fix type
+        const proposedValue = actionType === 'change_h1_heading'
+          ? String(afterState.h1 ?? Object.values(afterState)[0] ?? '')
+          : String(Object.values(afterState)[0] ?? '');
 
         const result = await applyMetadataFix({
           filePath,
           fixType,
-          currentValue: String(Object.values(beforeState)[0] ?? ''),
-          proposedValue: String(Object.values(afterState)[0] ?? ''),
+          currentValue: String(beforeState.h1 ?? Object.values(beforeState)[0] ?? ''),
+          proposedValue,
           recommendationId: recommendationId ?? 'unknown',
         });
 

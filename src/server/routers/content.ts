@@ -103,4 +103,13 @@ export const contentRouter = router({
       await regenerateBlogPost(input.id);
       return { success: true };
     }),
+
+  /** Regenerate the featured image for a blog post */
+  regenerateImage: protectedProcedure
+    .input(z.object({ id: z.string().uuid() }))
+    .mutation(async ({ input }) => {
+      const { regeneratePostImage } = await import('../../agent/tools/image-generator');
+      const imageUrl = await regeneratePostImage(input.id);
+      return { imageUrl };
+    }),
 });

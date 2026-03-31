@@ -7,13 +7,30 @@ import { runKeywordDiscovery } from '../../agent/tools/keyword-discovery';
  * Validates: Requirement 10.5
  */
 export const keywordsRouter = router({
-  /**
-   * Manually trigger keyword discovery from GSC data.
-   */
   discover: protectedProcedure.mutation(async () => {
     const count = await runKeywordDiscovery();
     return { count };
   }),
+
+  add: protectedProcedure
+    .input(z.object({ keyword: z.string().min(2) }))
+    .mutation(async ({ ctx, input }) => {
+      const { data, error } = await ctx.db
+        .from('keywords')
+        .upsert({ keyword: input.keyword.toLowerCase().trim(), is_tracked: true, is_approved: true, status: 'unranked_opportunity' }, { onConflict: 'keyword' })
+        .select('id').single();
+      if (error) throw new Error(`Failed to add keyword: ${error.message}`);
+      return data;
+    }),
+
+  remove: protectedProcedure
+    .input(z.object({ id: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const { error } = await ctx.db.from('keywords').update({ is_tracked: false }).eq('id', input.id);
+      if (error) throw new Error(`Failed to remove keyword: ${error.message}`);
+      return { success: true };
+    }),
+
   /**
    * Returns keywords with optional filters.
    * If competitor_domain is provided, joins with competitor_keywords to include

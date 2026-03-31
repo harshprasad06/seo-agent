@@ -35,6 +35,7 @@ let activeReader: ReadableStreamDefaultReader<Uint8Array> | null = null;
 function AgentPanel() {
   const [status, setStatus] = useState<'idle' | 'running' | 'done'>('idle');
   const [log, setLog] = useState<LogEntry[]>([]);
+  const [mode, setMode] = useState<'pipeline' | 'agent'>('pipeline');
   const logRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -60,7 +61,11 @@ function AgentPanel() {
     setStatus('running'); saveStatus('running');
 
     try {
-      const res = await fetch('/api/agent/run', { method: 'POST' });
+      const res = await fetch('/api/agent/run', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode }),
+      });
       if (!res.body) { setStatus('done'); saveStatus('done'); return; }
 
       activeReader = res.body.getReader();
@@ -122,6 +127,17 @@ function AgentPanel() {
           {(done || log.length > 0) && (
             <button className="btn btn-ghost btn-sm" onClick={clearLog}>Clear</button>
           )}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', background: 'var(--bg-secondary)', borderRadius: 6, padding: '0.2rem 0.4rem' }}>
+            <span style={{ fontSize: '0.72rem', color: 'var(--text-tertiary)' }}>Mode:</span>
+            <button
+              style={{ fontSize: '0.72rem', padding: '0.15rem 0.5rem', borderRadius: 4, border: 'none', cursor: 'pointer', background: mode === 'pipeline' ? 'var(--primary)' : 'transparent', color: mode === 'pipeline' ? '#fff' : 'var(--text-tertiary)' }}
+              onClick={() => setMode('pipeline')}
+            >Pipeline</button>
+            <button
+              style={{ fontSize: '0.72rem', padding: '0.15rem 0.5rem', borderRadius: 4, border: 'none', cursor: 'pointer', background: mode === 'agent' ? '#7c3aed' : 'transparent', color: mode === 'agent' ? '#fff' : 'var(--text-tertiary)' }}
+              onClick={() => setMode('agent')}
+            >🤖 Agent</button>
+          </div>
           <button
             className="btn btn-primary"
             onClick={startAgent}

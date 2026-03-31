@@ -2,7 +2,7 @@ import PgBoss from 'pg-boss';
 import { refreshTokenIfNeeded, TokenRevokedError } from '../lib/tokens';
 import { supabaseAdmin } from '../lib/supabase';
 
-const SITE_URL = process.env.SITE_URL ?? 'https://goodads.ai/';
+const SITE_URL = process.env.SITE_URL ?? 'https://example.com/';
 
 // ── Retry helpers ─────────────────────────────────────────────────────────────
 

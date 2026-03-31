@@ -6,8 +6,8 @@
 import { getFileSha, createPullRequest } from '@/lib/github';
 
 export interface MetadataFixParams {
-  filePath: string;       // e.g. 'app/page.tsx' or 'app/courses/page.tsx'
-  fixType: 'title_tag' | 'meta_description' | 'keywords';
+  filePath: string;
+  fixType: 'title_tag' | 'meta_description' | 'keywords' | 'h1_heading';
   currentValue: string;
   proposedValue: string;
   recommendationId: string;
@@ -59,6 +59,12 @@ export async function applyMetadataFix(params: MetadataFixParams): Promise<Metad
         `keywords: [${proposedValue.split(',').map(k => `"${k.trim()}"`).join(', ')}]`,
       );
     }
+  } else if (fixType === 'h1_heading') {
+    // Replace <h1> tag content in JSX/TSX
+    updatedContent = updatedContent.replace(
+      /<h1([^>]*)>[\s\S]*?<\/h1>/i,
+      `<h1$1>${proposedValue}</h1>`,
+    );
   }
 
   if (updatedContent === file.content) {

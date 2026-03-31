@@ -2,7 +2,9 @@ import PgBoss from 'pg-boss';
 import { supabaseAdmin } from '../lib/supabase';
 
 const SERPER_API_URL = 'https://google.serper.dev/search';
-const TARGET_DOMAIN = 'goodads.ai';
+const TARGET_DOMAIN = process.env.SITE_URL
+  ? new URL(process.env.SITE_URL).hostname.replace(/^www\./, '')
+  : 'example.com';
 
 interface SerperOrganicResult {
   link: string;

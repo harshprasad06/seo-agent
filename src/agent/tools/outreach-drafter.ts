@@ -7,8 +7,8 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import { supabaseAdmin } from '../../lib/supabase';
 
 const SITE_URL = process.env.SITE_URL ?? 'https://www.learnwealthx.in/';
-const SITE_NAME = 'LearnWealthX';
-const SITE_DESC = 'an online course platform where creators can sell courses and earn 100% affiliate commission';
+const SITE_NAME = process.env.SITE_NAME ?? 'LearnWealthX';
+const SITE_DESC = process.env.SITE_DESCRIPTION ?? 'an online course platform';
 
 async function callAI(prompt: string): Promise<string> {
   // Try Gemini first
